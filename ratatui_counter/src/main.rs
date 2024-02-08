@@ -1,20 +1,25 @@
+use anyhow::Result;
 use crossterm::{
     event::{self, Event::Key, KeyCode::Char},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-
 use ratatui::{
     prelude::{CrosstermBackend, Frame, Terminal},
-    widgets::Paragraph,
+    // widgets::Paragraph,
 };
 
-use anyhow::Result;
+pub mod app;
 
-struct App {
-    counter: i64,
-    should_quit: bool,
-}
+use app::App;
+
+pub mod event;
+pub mod ui;
+
+// pub mod tui;
+// pub mod update;
+
+const POLL_RATE: std::time::Duration = std::time::Duration::from_millis(1000);
 
 fn main() -> Result<()> {
     startup()?;
@@ -30,31 +35,16 @@ fn startup() -> Result<()> {
     Ok(())
 }
 
-fn shutdown() -> Result<()> {
-    execute!(std::io::stderr(), LeaveAlternateScreen)?;
-    disable_raw_mode()?;
-    Ok(())
-}
-
-fn ui_draw(app: &App, f: &mut Frame) {
-    f.render_widget(
-        Paragraph::new(format!(
-            "You can use 'j' to decrement, 'k' to increment, and q to quit
-Counter: {}",
-            app.counter
-        )),
-        f.size(),
-    )
-}
+fn ui_draw(app: &App, f: &mut Frame) {}
 
 fn ui_update(app: &mut App) -> Result<()> {
-    if event::poll(std::time::Duration::from_millis(250))? {
+    if event::poll(POLL_RATE)? {
         if let Key(key) = event::read()? {
             if key.kind == event::KeyEventKind::Press {
                 match key.code {
-                    Char('k') => app.counter += 1,
-                    Char('j') => app.counter -= 1,
-                    Char('q') => app.should_quit = true,
+                    Char('k') => app.increment_counter(),
+                    Char('j') => app.decrement_counter(),
+                    Char('q') => app.quit(),
                     // Key(KeyEvent("Esc") => app.should_quit = true,
                     _ => {}
                 }
@@ -67,10 +57,7 @@ fn ui_update(app: &mut App) -> Result<()> {
 fn run() -> Result<()> {
     let mut t = Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
 
-    let mut app = App {
-        counter: 0,
-        should_quit: false,
-    };
+    let mut app = App::default();
 
     loop {
         t.draw(|f| {
@@ -83,5 +70,11 @@ fn run() -> Result<()> {
             break;
         }
     }
+    Ok(())
+}
+
+fn shutdown() -> Result<()> {
+    execute!(std::io::stderr(), LeaveAlternateScreen)?;
+    disable_raw_mode()?;
     Ok(())
 }
